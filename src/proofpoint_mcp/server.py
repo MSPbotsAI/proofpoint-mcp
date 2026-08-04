@@ -136,25 +136,10 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     )
 
     from .tools import (
-        essentials_authentication,
-        essentials_billing,
-        essentials_dkim,
-        essentials_domain_verification,
         essentials_domains,
-        essentials_email_tagging,
-        essentials_endpoints,
-        essentials_features,
-        essentials_licensing,
         essentials_me,
         essentials_orgs,
-        essentials_package,
-        essentials_products,
-        essentials_reporting,
-        essentials_sender_lists,
-        essentials_settings,
-        essentials_stats,
         essentials_sync_exemptions,
-        essentials_token,
         essentials_users,
         tap_campaign,
         tap_forensics,
@@ -175,25 +160,10 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         mod.register(mcp, tap_client_factory)
 
     for mod in (
-        essentials_authentication,
-        essentials_billing,
-        essentials_dkim,
-        essentials_domain_verification,
         essentials_domains,
-        essentials_email_tagging,
-        essentials_endpoints,
-        essentials_features,
-        essentials_licensing,
         essentials_me,
         essentials_orgs,
-        essentials_package,
-        essentials_products,
-        essentials_reporting,
-        essentials_sender_lists,
-        essentials_settings,
-        essentials_stats,
         essentials_sync_exemptions,
-        essentials_token,
         essentials_users,
     ):
         mod.register(mcp, essentials_client_factory)

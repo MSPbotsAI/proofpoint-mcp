@@ -12,12 +12,13 @@ MCP server for **Proofpoint** — wraps two distinct Proofpoint products/APIs be
 
 ## Scope
 
-**89 tools**: 12 for TAP, 77 for Proofpoint Essentials.
+**28 tools**: 12 for TAP, 16 for Proofpoint Essentials. Trimmed down from an
+original 89-tool build (12 TAP + 77 Essentials) on 2026-08-04.
 
-No official Proofpoint MCP server exists (confirmed by searching both the `wyre-technology` and `MSPbotsAI` GitHub orgs, and Proofpoint's own docs/marketplace). A community project, [`wyre-technology/proofpoint-mcp`](https://github.com/wyre-technology/proofpoint-mcp), exists and claims TAP + "Essentials" coverage, but its actual code only ever calls the TAP host (`tap-api-v2.proofpoint.com`) — it has no Essentials API integration at all despite the README's claim. This server is a from-scratch build, not a fork, and additionally covers the full Essentials API the community project does not.
+No official Proofpoint MCP server exists (confirmed by searching both the `wyre-technology` and `MSPbotsAI` GitHub orgs, and Proofpoint's own docs/marketplace). A community project, [`wyre-technology/proofpoint-mcp`](https://github.com/wyre-technology/proofpoint-mcp), exists and claims TAP + "Essentials" coverage, but its actual code only ever calls the TAP host (`tap-api-v2.proofpoint.com`) — it has no Essentials API integration at all despite the README's claim. This server is a from-scratch build, not a fork.
 
-- **Essentials (77 tools)**: generated directly from Proofpoint's own official OpenAPI 3.0 spec, downloaded from `https://us1.proofpointessentials.com/apidocs/apidocs/docs`. Full CRUD across Organizations, Domains, Users, DKIM, Authentication (IdP/MFA/login settings), Sender Lists, Sync Exemptions, Billing, Licensing, and more — this fully covers the task's stated need (tenant/user account creation and synchronization).
-- **TAP (12 tools)**: hand-built from Proofpoint's official Threat Insight Dashboard API documentation (`help.proofpoint.com`) plus live endpoint verification, **not** ported as-is from the community repo. See **Verification Methodology** below for why this is a much smaller set than the community repo's 38 TAP tools.
+- **Essentials (16 tools)**: this vendor was never previously configured in MSPbots (no live integration config to check usage against), so — matching the approach used for `duo-mcp` elsewhere in this program — "actual usage" was taken from the original ClickUp task's own stated requirement instead: **email security account creation and synchronization**. That maps to `users` (5 tools, kept in full: get/list/create/update/delete — this *is* account creation), `sync_exemptions` (4 tools, kept in full: get/set/delete Azure AD sync exemptions — this *is* synchronization control), plus minimal supporting `orgs` (3: get/create/update — a user must belong to an org) and `domains` (3: list/create/get — a user's email domain must exist first), plus `me` (1, connectivity self-test). The original 77-tool Essentials build additionally generated full CRUD from Proofpoint's official OpenAPI 3.0 spec (`https://us1.proofpointessentials.com/apidocs/apidocs/docs`) across DKIM, Authentication (IdP/MFA/login settings), Sender Lists, Billing, Licensing, Products, Reporting, Settings, Features, Email Tagging, Token, Endpoints, and Domain Verification (13 categories, ~61 tools) — all removed as unrelated to the account-creation/sync task.
+- **TAP (12 tools, unchanged)**: hand-built from Proofpoint's official Threat Insight Dashboard API documentation (`help.proofpoint.com`) plus live endpoint verification, **not** ported as-is from the community repo. See **Verification Methodology** below for why this is a much smaller set than the community repo's 38 TAP tools. This category was already minimal before the 2026-08-04 trim and needed no further reduction.
 
 ## Verification Methodology (why TAP is 12 tools, not 38)
 
@@ -96,83 +97,22 @@ Tool names are `proofpoint_<product>_<category>_<operation>`. Essentials tool si
 
 | Category | Tool | Method + Path | Params |
 |---|---|---|---|
-| essentials/authentication | `proofpoint_essentials_authentication_delete_idp` | DELETE /orgs/{domain}/authentication/settings/idps/{uuid} | domain(required), uuid(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_get_all_idps` | GET /orgs/{domain}/authentication/settings/idps | domain(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_get_idp_by_uuid` | GET /orgs/{domain}/authentication/settings/idps/{uuid} | domain(required), uuid(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_get_login_settings` | GET /orgs/{domain}/authentication/settings/login | domain(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_get_mfa_settings` | GET /orgs/{domain}/authentication/settings/mfa | domain(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_post_idp` | POST /orgs/{domain}/authentication/settings/idps | domain(required), body(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_put_idp` | PUT /orgs/{domain}/authentication/settings/idps/{uuid} | domain(required), uuid(required), body(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_put_login_settings` | PUT /orgs/{domain}/authentication/settings/login | domain(required), body(required) |
-| essentials/authentication | `proofpoint_essentials_authentication_put_mfa_settings` | PUT /orgs/{domain}/authentication/settings/mfa | domain(required), body(required) |
-| essentials/billing | `proofpoint_essentials_billing_get_billing_data` | GET /billing/{domain} | domain(required) |
-| essentials/billing | `proofpoint_essentials_billing_get_billing_data_orgs` | GET /billing/{domain}/orgs | domain(required) |
-| essentials/dkim | `proofpoint_essentials_dkim_delete_all_for_domain` | DELETE /orgs/{domain}/domains/{targetDomain}/dkim | domain(required), target_domain(required) |
-| essentials/dkim | `proofpoint_essentials_dkim_delete_by_selector` | DELETE /orgs/{domain}/domains/{targetDomain}/dkim/{selector} | domain(required), target_domain(required), selector(required) |
-| essentials/dkim | `proofpoint_essentials_dkim_get_all_dkim_for_domain` | GET /orgs/{domain}/domains/{targetDomain}/dkim | domain(required), target_domain(required) |
-| essentials/dkim | `proofpoint_essentials_dkim_get_by_selector` | GET /orgs/{domain}/domains/{targetDomain}/dkim/{selector} | domain(required), target_domain(required), selector(required) |
-| essentials/dkim | `proofpoint_essentials_dkim_post` | POST /orgs/{domain}/domains/{targetDomain}/dkim/{selector} | domain(required), target_domain(required), selector(required), body(required) |
-| essentials/dkim | `proofpoint_essentials_dkim_verify_dkim` | PUT /orgs/{domain}/domains/{targetDomain}/dkim/{selector}/verify | domain(required), target_domain(required), selector(required) |
-| essentials/domain verification | `proofpoint_essentials_domain_verification_get_domain_verification_code` | GET /orgs/{domain}/domains/{domaintobeverified}/verification-code | domain(required), domaintobeverified(required) |
-| essentials/domain verification | `proofpoint_essentials_domain_verification_verify` | PUT /orgs/{domain}/domains/{targetDomain}/verify/{method} | domain(required), target_domain(required), method(required) |
-| essentials/domains | `proofpoint_essentials_domains_delete_domain` | DELETE /orgs/{domain}/domains/{targetDomain} | domain(required), target_domain(required) |
-| essentials/domains | `proofpoint_essentials_domains_get_domain` | GET /orgs/{domain}/domains/{targetDomain} | domain(required), target_domain(required) |
-| essentials/domains | `proofpoint_essentials_domains_get_domains` | GET /orgs/{domain}/domains | domain(required) |
-| essentials/domains | `proofpoint_essentials_domains_get_health` | GET /orgs/{domain}/domains/{domaintobediagnosed}/health | domain(required), domaintobediagnosed(required) |
-| essentials/domains | `proofpoint_essentials_domains_post_domain` | POST /orgs/{domain}/domains | domain(required), body(required) |
-| essentials/domains | `proofpoint_essentials_domains_put_domain` | PUT /orgs/{domain}/domains/{targetDomain} | domain(required), target_domain(required), body(required) |
-| essentials/email tagging | `proofpoint_essentials_email_tagging_delete_email_tagging_exemptions` | DELETE /orgs/{domain}/email-tagging/exemptions | domain(required) |
-| essentials/email tagging | `proofpoint_essentials_email_tagging_get` | GET /orgs/{domain}/email-tagging | domain(required) |
-| essentials/email tagging | `proofpoint_essentials_email_tagging_get_email_tagging_exemptions` | GET /orgs/{domain}/email-tagging/exemptions | domain(required) |
-| essentials/email tagging | `proofpoint_essentials_email_tagging_patch` | PATCH /orgs/{domain}/email-tagging | domain(required), body(required) |
-| essentials/email tagging | `proofpoint_essentials_email_tagging_post_email_tagging_exemptions` | POST /orgs/{domain}/email-tagging/exemptions | domain(required), body(required) |
-| essentials/email tagging | `proofpoint_essentials_email_tagging_put` | PUT /orgs/{domain}/email-tagging | domain(required), body(required) |
-| essentials/endpoints | `proofpoint_essentials_endpoints_get_endpoints` | GET /endpoints/{domaintobechecked} | domaintobechecked(required) |
-| essentials/features | `proofpoint_essentials_features_get_features` | GET /orgs/{domain}/features | domain(required) |
-| essentials/features | `proofpoint_essentials_features_put_features` | PUT /orgs/{domain}/features | domain(required), body(required) |
-| essentials/licensing | `proofpoint_essentials_licensing_get_licensing` | GET /orgs/{domain}/licensing | domain(required) |
-| essentials/licensing | `proofpoint_essentials_licensing_put_licensing` | PUT /orgs/{domain}/licensing | domain(required) |
-| essentials/me | `proofpoint_essentials_me_get_me` | GET /me | none |
-| essentials/orgs | `proofpoint_essentials_orgs_delete_org` | DELETE /orgs/{domain} | domain(required) |
-| essentials/orgs | `proofpoint_essentials_orgs_get_child_orgs` | GET /orgs/{domain}/orgs | domain(required) |
-| essentials/orgs | `proofpoint_essentials_orgs_get_org` | GET /orgs/{domain} | domain(required) |
-| essentials/orgs | `proofpoint_essentials_orgs_patch_org` | PATCH /orgs/{domain} | domain(required), body(required) |
-| essentials/orgs | `proofpoint_essentials_orgs_post_org` | POST /orgs/{domain}/orgs | domain(required), body(required) |
-| essentials/package | `proofpoint_essentials_package_put_package` | PUT /orgs/{domain}/package | domain(required), body(required) |
-| essentials/products | `proofpoint_essentials_products_get_one` | GET /orgs/{domain}/products/{label} | domain(required), label(required) |
-| essentials/products | `proofpoint_essentials_products_get_products` | GET /orgs/{domain}/products | domain(required) |
-| essentials/products | `proofpoint_essentials_products_product_delete` | DELETE /orgs/{domain}/products/{label} | domain(required), label(required) |
-| essentials/products | `proofpoint_essentials_products_product_patch` | PATCH /orgs/{domain}/products/{label} | domain(required), label(required), body(required) |
-| essentials/products | `proofpoint_essentials_products_products_post` | POST /orgs/{domain}/products | domain(required), body(required) |
-| essentials/reporting | `proofpoint_essentials_reporting_get_reporting_period` | GET /reporting/{domain}/{period} | domain(required), period(required) |
-| essentials/reporting | `proofpoint_essentials_reporting_get_reporting_period_by_direction` | GET /reporting/{domain}/{period}/{direction} | domain(required), period(required), direction(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_delete_group_lists` | DELETE /orgs/{domain}/groups/{group}/sender-lists | domain(required), group(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_delete_sender_lists` | DELETE /orgs/{domain}/sender-lists | domain(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_delete_user_lists` | DELETE /orgs/{domain}/users/{user}/sender-lists | domain(required), user(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_get_group_lists` | GET /orgs/{domain}/groups/{group}/sender-lists | domain(required), group_id(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_get_sender_lists` | GET /orgs/{domain}/sender-lists | domain(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_get_user_lists` | GET /orgs/{domain}/users/{user}/sender-lists | domain(required), user(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_patch_group_sender_lists` | PATCH /orgs/{domain}/groups/{group}/sender-lists | domain(required), group(required), body(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_patch_sender_lists` | PATCH /orgs/{domain}/sender-lists | domain(required), body(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_patch_user_sender_lists` | PATCH /orgs/{domain}/users/{user}/sender-lists | domain(required), user(required), body(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_post_group_lists` | POST /orgs/{domain}/groups/{group}/sender-lists | domain(required), group(required), body(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_post_sender_lists` | POST /orgs/{domain}/sender-lists | domain(required), body(required) |
-| essentials/sender lists | `proofpoint_essentials_sender_lists_post_user_lists` | POST /orgs/{domain}/users/{user}/sender-lists | domain(required), user(required), body(required) |
-| essentials/settings | `proofpoint_essentials_settings_delete_azure_settings` | DELETE /orgs/{domain}/settings/azure | domain(required) |
-| essentials/settings | `proofpoint_essentials_settings_get_azure_settings` | GET /orgs/{domain}/settings/azure | domain(required) |
-| essentials/settings | `proofpoint_essentials_settings_put_azure_settings` | PUT /orgs/{domain}/settings/azure | domain(required), body(required) |
-| essentials/stats | `proofpoint_essentials_stats_partner_stats_all_orgs` | GET /stats/{domain}/partner/orgs | domain(required), period(optional), page(optional), page_size(optional) |
-| essentials/stats | `proofpoint_essentials_stats_partner_stats_single_org` | GET /stats/{domain}/partner | domain(required), period(optional), page(optional), page_size(optional) |
-| essentials/sync exemptions | `proofpoint_essentials_sync_exemptions_delete_all_azure_exemptions` | DELETE /orgs/{domain}/settings/azure/exemptions | domain(required) |
-| essentials/sync exemptions | `proofpoint_essentials_sync_exemptions_delete_azure_exemptions` | DELETE /orgs/{domain}/settings/azure/exemptions/{user} | domain(required), user(required) |
-| essentials/sync exemptions | `proofpoint_essentials_sync_exemptions_get_azure_exemptions` | GET /orgs/{domain}/settings/azure/exemptions | domain(required) |
-| essentials/sync exemptions | `proofpoint_essentials_sync_exemptions_put_azure_exemptions` | PUT /orgs/{domain}/settings/azure/exemptions | domain(required), body(required) |
-| essentials/token | `proofpoint_essentials_token_post_token` | POST /token/{domain} | domain(required), body(required) |
-| essentials/users | `proofpoint_essentials_users_delete_user` | DELETE /orgs/{domain}/users/{user} | domain(required), user(required) |
-| essentials/users | `proofpoint_essentials_users_get_user` | GET /orgs/{domain}/users/{user} | domain(required), user(required) |
-| essentials/users | `proofpoint_essentials_users_get_users` | GET /orgs/{domain}/users | domain(required) |
-| essentials/users | `proofpoint_essentials_users_post_user` | POST /orgs/{domain}/users | domain(required), body(required) |
-| essentials/users | `proofpoint_essentials_users_put_user` | PUT /orgs/{domain}/users/{user} | domain(required), user(required), body(required) |
+| essentials_domains | `proofpoint_essentials_domains_get_domain` | GET /orgs/{domain}/domains/{targetDomain} | domain(required), target_domain(required) |
+| essentials_domains | `proofpoint_essentials_domains_get_domains` | GET /orgs/{domain}/domains | domain(required) |
+| essentials_domains | `proofpoint_essentials_domains_post_domain` | POST /orgs/{domain}/domains | domain(required), body(required) |
+| essentials_me | `proofpoint_essentials_me_get_me` | GET /me | none |
+| essentials_orgs | `proofpoint_essentials_orgs_get_org` | GET /orgs/{domain} | domain(required) |
+| essentials_orgs | `proofpoint_essentials_orgs_patch_org` | PATCH /orgs/{domain} | domain(required), body(required) |
+| essentials_orgs | `proofpoint_essentials_orgs_post_org` | POST /orgs/{domain}/orgs | domain(required), body(required) |
+| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_delete_all_azure_exemptions` | DELETE /orgs/{domain}/settings/azure/exemptions | domain(required) |
+| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_delete_azure_exemptions` | DELETE /orgs/{domain}/settings/azure/exemptions/{user} | domain(required), user(required) |
+| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_get_azure_exemptions` | GET /orgs/{domain}/settings/azure/exemptions | domain(required) |
+| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_put_azure_exemptions` | PUT /orgs/{domain}/settings/azure/exemptions | domain(required), body(required) |
+| essentials_users | `proofpoint_essentials_users_delete_user` | DELETE /orgs/{domain}/users/{user} | domain(required), user(required) |
+| essentials_users | `proofpoint_essentials_users_get_user` | GET /orgs/{domain}/users/{user} | domain(required), user(required) |
+| essentials_users | `proofpoint_essentials_users_get_users` | GET /orgs/{domain}/users | domain(required) |
+| essentials_users | `proofpoint_essentials_users_post_user` | POST /orgs/{domain}/users | domain(required), body(required) |
+| essentials_users | `proofpoint_essentials_users_put_user` | PUT /orgs/{domain}/users/{user} | domain(required), user(required), body(required) |
 | tap/campaign | `proofpoint_tap_campaign_get_campaign` | GET /v2/campaign/{campaign_id} | campaign_id(required) |
 | tap/campaign | `proofpoint_tap_campaign_list_ids` | GET /v2/campaign/ids | interval(required), size(optional), page(optional) |
 | tap/forensics | `proofpoint_tap_forensics_get_forensics` | GET /v2/forensics | threat_id(optional), campaign_id(optional), include_campaign_forensics(optional) |
@@ -233,10 +173,21 @@ No Proofpoint credentials (TAP or Essentials) were provided with this task, so a
 
 ## Known Gaps
 
+- **Trimmed from 89 to 28 tools on 2026-08-04.** TAP was already minimal
+  (12 tools, unchanged). Essentials was cut from a full-API 77-tool build
+  down to 16 tools covering the original ClickUp task's stated need
+  (account creation + synchronization) — see the Scope section above for
+  the exact category rationale and the full list of the 13 removed
+  Essentials categories (~61 tools: Authentication, Billing, DKIM, Domain
+  Verification, Email Tagging, Endpoints, Features, Licensing, Package,
+  Products, Reporting, Sender Lists, Settings, Stats, Token). If a removed
+  category is needed later, Proofpoint's own OpenAPI spec (linked below)
+  still documents its exact operations and they can be re-added the same
+  way the kept tools were generated.
 - **Community repo's `dlp`, `policy`, `quarantine`, `smart_search`, `events` categories (13 tools) were dropped entirely** — confirmed fabricated/nonexistent against both live testing and official docs. See Verification Methodology above.
 - **Reports/Dash Reports API was discovered but not built.** It's a real, separate Proofpoint product at `threatprotection-api.proofpoint.com` with its own OAuth2 `client_credentials` auth flow (`POST https://auth.proofpoint.com/v1/token`) and ~30 endpoints (Executive Summary, Effectiveness Reports, Organization Reports, Threat Landscape Reports). This is new scope beyond fixing the existing 11 TAP categories from the community repo, and wasn't part of this task's original request — flag separately if reporting/dashboard data is actually needed.
 - **"Threats API" doc page is login-gated.** `help.proofpoint.com/Threat_Insight_Dashboard/API_Documentation/Threats_API` redirects to a Proofpoint account sign-in wall. The one tool in this category (`proofpoint_tap_threats_get_by_id`, `GET /v2/threat/summary/{threat_id}`) is confirmed live (401, route recognized) but its full parameter/response schema could not be cross-checked against the official doc — if it doesn't behave as expected against a real threat ID, that's the first place to look.
 - **Supplier Threat Protection API was not evaluated** — it's one of the 8 official TAP sub-APIs but has no corresponding tool in the community repo to begin with, so it was out of scope for this correction pass. Not built.
 - **No live self-test against real account data.** This task did not come with a Proofpoint test account/credentials (unlike most other vendor builds in this program). Only negative-credential (401, route-recognized) verification has been performed — see 测试示例 above.
 - **`domain` param naming (Essentials).** Per the official OpenAPI spec, most Essentials paths use `{domain}` as a path segment that actually identifies the *organization* being operated on (not always a literal email domain) — this matches the vendor's own spec/terminology exactly, not a naming choice made here.
-- **Essentials write operations are destructive/irreversible where the underlying HTTP verb is DELETE** (e.g. `proofpoint_essentials_domains_delete_domain`, `proofpoint_essentials_users_delete_user`, `proofpoint_essentials_orgs_delete_org`) — treat these as irreversible against a real tenant and confirm with a human before invoking.
+- **Essentials write operations are destructive/irreversible where the underlying HTTP verb is DELETE** — `proofpoint_essentials_users_delete_user` and the 2 `sync_exemptions` delete tools — treat these as irreversible against a real tenant and confirm with a human before invoking.
