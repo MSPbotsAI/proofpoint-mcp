@@ -139,22 +139,15 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         essentials_domains,
         essentials_me,
         essentials_orgs,
-        essentials_sync_exemptions,
         essentials_users,
-        tap_campaign,
-        tap_forensics,
         tap_people,
         tap_tap,
-        tap_threats,
         tap_url_defense,
     )
 
     for mod in (
-        tap_campaign,
-        tap_forensics,
         tap_people,
         tap_tap,
-        tap_threats,
         tap_url_defense,
     ):
         mod.register(mcp, tap_client_factory)
@@ -163,7 +156,6 @@ def create_mcp_server(settings: Settings) -> FastMCP:
         essentials_domains,
         essentials_me,
         essentials_orgs,
-        essentials_sync_exemptions,
         essentials_users,
     ):
         mod.register(mcp, essentials_client_factory)

@@ -2,6 +2,18 @@
 
 MCP server for **Proofpoint** — wraps two distinct Proofpoint products/APIs behind one MCP server: **TAP (Targeted Attack Protection)**, threat/campaign/people-risk intelligence, and **Essentials**, the Proofpoint Essentials tenant/user/domain administration API.
 
+> **Tool Scope note (2026-08-07):** the tool surface was trimmed from 28 to
+> 15 tools. The parent ClickUp task's stated primary use case is **email
+> security account creation / synchronization**, so all 12 Essentials
+> account/org/domain/user management tools are kept in full, while TAP
+> (threat analytics) is trimmed to one representative tool per category:
+> `get_all_threats`, `get_vap`, and `url_defense_decode`. Dropped as lower
+> priority for the account-provisioning use case: campaign tracking,
+> forensics, per-category click/message breakdowns (SIEM
+> clicks-blocked/permitted, messages-blocked/delivered), Azure AD sync
+> exemptions, and threat-by-id lookup. See the Scope section below for the
+> full breakdown.
+
 ## Overview
 
 - Stateless HTTP service. No credentials are ever persisted — each request supplies its own credentials via headers, used only for the lifetime of that single request.
@@ -12,13 +24,15 @@ MCP server for **Proofpoint** — wraps two distinct Proofpoint products/APIs be
 
 ## Scope
 
-**28 tools**: 12 for TAP, 16 for Proofpoint Essentials. Trimmed down from an
-original 89-tool build (12 TAP + 77 Essentials) on 2026-08-04.
+**15 tools**: 3 for TAP, 12 for Proofpoint Essentials. Trimmed down from a
+28-tool build (12 TAP + 16 Essentials) on 2026-08-07, which itself was
+trimmed from an original 89-tool build (12 TAP + 77 Essentials) on
+2026-08-04.
 
 No official Proofpoint MCP server exists (confirmed by searching both the `wyre-technology` and `MSPbotsAI` GitHub orgs, and Proofpoint's own docs/marketplace). A community project, [`wyre-technology/proofpoint-mcp`](https://github.com/wyre-technology/proofpoint-mcp), exists and claims TAP + "Essentials" coverage, but its actual code only ever calls the TAP host (`tap-api-v2.proofpoint.com`) — it has no Essentials API integration at all despite the README's claim. This server is a from-scratch build, not a fork.
 
-- **Essentials (16 tools)**: this vendor was never previously configured in MSPbots (no live integration config to check usage against), so — matching the approach used for `duo-mcp` elsewhere in this program — "actual usage" was taken from the original ClickUp task's own stated requirement instead: **email security account creation and synchronization**. That maps to `users` (5 tools, kept in full: get/list/create/update/delete — this *is* account creation), `sync_exemptions` (4 tools, kept in full: get/set/delete Azure AD sync exemptions — this *is* synchronization control), plus minimal supporting `orgs` (3: get/create/update — a user must belong to an org) and `domains` (3: list/create/get — a user's email domain must exist first), plus `me` (1, connectivity self-test). The original 77-tool Essentials build additionally generated full CRUD from Proofpoint's official OpenAPI 3.0 spec (`https://us1.proofpointessentials.com/apidocs/apidocs/docs`) across DKIM, Authentication (IdP/MFA/login settings), Sender Lists, Billing, Licensing, Products, Reporting, Settings, Features, Email Tagging, Token, Endpoints, and Domain Verification (13 categories, ~61 tools) — all removed as unrelated to the account-creation/sync task.
-- **TAP (12 tools, unchanged)**: hand-built from Proofpoint's official Threat Insight Dashboard API documentation (`help.proofpoint.com`) plus live endpoint verification, **not** ported as-is from the community repo. See **Verification Methodology** below for why this is a much smaller set than the community repo's 38 TAP tools. This category was already minimal before the 2026-08-04 trim and needed no further reduction.
+- **Essentials (12 tools, kept in full)**: the parent ClickUp task explicitly emphasizes **email security account creation / synchronization** as the primary use case, so every Essentials category directly supporting that flow is kept in its entirety: `users` (5 tools: get/list/create/update/delete — this *is* account creation), `orgs` (3: get/create/update — a user must belong to an org), `domains` (3: list/create/get — a user's email domain must exist first), and `me` (1, connectivity self-test). The `sync_exemptions` category (4 tools: get/set/delete Azure AD sync exemptions) was dropped on 2026-08-07 as a lower priority than the core account-provisioning tools for this trim. The earlier 77-tool Essentials build additionally generated full CRUD from Proofpoint's official OpenAPI 3.0 spec (`https://us1.proofpointessentials.com/apidocs/apidocs/docs`) across DKIM, Authentication (IdP/MFA/login settings), Sender Lists, Billing, Licensing, Products, Reporting, Settings, Features, Email Tagging, Token, Endpoints, and Domain Verification (13 categories, ~61 tools) — all removed as unrelated to the account-creation/sync task.
+- **TAP (3 tools, trimmed from 12 on 2026-08-07)**: hand-built from Proofpoint's official Threat Insight Dashboard API documentation (`help.proofpoint.com`) plus live endpoint verification, **not** ported as-is from the community repo. See **Verification Methodology** below for the original 12-tool selection rationale (why that was already a much smaller set than the community repo's 38 TAP tools). As of 2026-08-07, TAP was trimmed further to one representative tool per category, since threat analytics is secondary to this server's primary account-provisioning use case: `tap.get_all_threats` (SIEM, kept), `people.get_vap` (kept; `people.get_top_clickers` dropped), `url_defense.decode` (kept, unchanged — it was already this category's only tool). Dropped entirely in this pass: `campaign` (2 tools: get_campaign, list_ids), `forensics` (1 tool: get_forensics), `threats` (1 tool: get_by_id), and the `tap` category's per-type SIEM breakdowns (`get_clicks_blocked`, `get_clicks_permitted`, `get_messages_blocked`, `get_messages_delivered` — `get_all_threats` already covers this data in one combined call).
 
 ## Verification Methodology (why TAP is 12 tools, not 38)
 
@@ -46,7 +60,7 @@ Results:
 | `reports` (4 tools, e.g. `org_summary`) | **Fake at these paths.** While investigating, discovered Proofpoint does have a real "Reports"/"Dash Reports" API — but it's a **completely separate product**: different host (`threatprotection-api.proofpoint.com`), different auth (OAuth2 `client_credentials` via `POST https://auth.proofpoint.com/v1/token`), different paths (`/executive-summary/...`, `/effectiveness-reports/...`, etc.). None of the community repo's `/v1/reports/*` paths match this real product. | Removed; documented as a known gap (see below), not built |
 | `events` (3 tools) | `list` coincidentally reused the real `/v2/siem/all` route (401), but `get_details`/`get_stats` are fake (404), and the whole category duplicates the `tap` category's SIEM coverage under a different (partially wrong) shape | Removed entirely; SIEM coverage is fully provided by the `tap` category |
 
-**Net result**: 12 TAP tools, every one of which returns `401` (route recognized, credentials rejected) when live-tested against `https://tap-api-v2.proofpoint.com` with placeholder credentials — no tool in this server points at a nonexistent or fabricated endpoint.
+**Net result**: 12 TAP tools, every one of which returns `401` (route recognized, credentials rejected) when live-tested against `https://tap-api-v2.proofpoint.com` with placeholder credentials — no tool in this server points at a nonexistent or fabricated endpoint. (As of the 2026-08-07 trim, only 3 of these 12 remain in this server — `tap.get_all_threats`, `people.get_vap`, `url_defense.decode` — see Scope above; the other 9 are still real, verified endpoints and could be re-added from this table if needed.)
 
 ## Authentication
 
@@ -104,27 +118,16 @@ Tool names are `proofpoint_<product>_<category>_<operation>`. Essentials tool si
 | essentials_orgs | `proofpoint_essentials_orgs_get_org` | GET /orgs/{domain} | domain(required) |
 | essentials_orgs | `proofpoint_essentials_orgs_patch_org` | PATCH /orgs/{domain} | domain(required), body(required) |
 | essentials_orgs | `proofpoint_essentials_orgs_post_org` | POST /orgs/{domain}/orgs | domain(required), body(required) |
-| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_delete_all_azure_exemptions` | DELETE /orgs/{domain}/settings/azure/exemptions | domain(required) |
-| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_delete_azure_exemptions` | DELETE /orgs/{domain}/settings/azure/exemptions/{user} | domain(required), user(required) |
-| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_get_azure_exemptions` | GET /orgs/{domain}/settings/azure/exemptions | domain(required) |
-| essentials_sync_exemptions | `proofpoint_essentials_sync_exemptions_put_azure_exemptions` | PUT /orgs/{domain}/settings/azure/exemptions | domain(required), body(required) |
 | essentials_users | `proofpoint_essentials_users_delete_user` | DELETE /orgs/{domain}/users/{user} | domain(required), user(required) |
 | essentials_users | `proofpoint_essentials_users_get_user` | GET /orgs/{domain}/users/{user} | domain(required), user(required) |
 | essentials_users | `proofpoint_essentials_users_get_users` | GET /orgs/{domain}/users | domain(required) |
 | essentials_users | `proofpoint_essentials_users_post_user` | POST /orgs/{domain}/users | domain(required), body(required) |
 | essentials_users | `proofpoint_essentials_users_put_user` | PUT /orgs/{domain}/users/{user} | domain(required), user(required), body(required) |
-| tap/campaign | `proofpoint_tap_campaign_get_campaign` | GET /v2/campaign/{campaign_id} | campaign_id(required) |
-| tap/campaign | `proofpoint_tap_campaign_list_ids` | GET /v2/campaign/ids | interval(required), size(optional), page(optional) |
-| tap/forensics | `proofpoint_tap_forensics_get_forensics` | GET /v2/forensics | threat_id(optional), campaign_id(optional), include_campaign_forensics(optional) |
-| tap/people | `proofpoint_tap_people_get_top_clickers` | GET /v2/people/top-clickers | window(required), size(optional), page(optional) |
 | tap/people | `proofpoint_tap_people_get_vap` | GET /v2/people/vap | window(required), size(optional), page(optional) |
 | tap/tap | `proofpoint_tap_tap_get_all_threats` | GET /v2/siem/all | since_seconds(optional), since_time(optional), interval(optional), threat_status(optional), format(optional) |
-| tap/tap | `proofpoint_tap_tap_get_clicks_blocked` | GET /v2/siem/clicks/blocked | since_seconds(optional), since_time(optional), interval(optional), threat_status(optional) |
-| tap/tap | `proofpoint_tap_tap_get_clicks_permitted` | GET /v2/siem/clicks/permitted | since_seconds(optional), since_time(optional), interval(optional), threat_status(optional) |
-| tap/tap | `proofpoint_tap_tap_get_messages_blocked` | GET /v2/siem/messages/blocked | since_seconds(optional), since_time(optional), interval(optional), threat_status(optional) |
-| tap/tap | `proofpoint_tap_tap_get_messages_delivered` | GET /v2/siem/messages/delivered | since_seconds(optional), since_time(optional), interval(optional), threat_status(optional) |
-| tap/threats | `proofpoint_tap_threats_get_by_id` | GET /v2/threat/summary/{threat_id} | threat_id(required) |
 | tap/url_defense | `proofpoint_tap_url_defense_decode` | POST /v2/url/decode | body(required) |
+
+**Removed on 2026-08-07** (were previously in this table; see Scope above for rationale): `essentials_sync_exemptions` (4 tools: get/put/delete/delete-all Azure AD exemptions), `tap/campaign` (`get_campaign`, `list_ids`), `tap/forensics` (`get_forensics`), `tap/threats` (`get_by_id`), `tap/people.get_top_clickers`, and `tap/tap`'s `get_clicks_blocked`, `get_clicks_permitted`, `get_messages_blocked`, `get_messages_delivered`.
 
 ## 测试示例
 
@@ -156,6 +159,8 @@ curl -s -X POST http://localhost:8080/mcp \
 
 No Proofpoint credentials (TAP or Essentials) were provided with this task, so a live call against real account data has not been performed for either product — only the negative-credential (401) path above.
 
+**Structural self-test (2026-08-07, after the 28→15 tool trim)**: server started locally, `GET /health` confirmed OK, then an MCP `streamablehttp_client` + `ClientSession` did a full `initialize()` + `tools/list()` against it with dummy (non-functional) values for all 5 credential headers (just enough to pass the transport-level 401 gate). Result: exactly 15 tools returned, no duplicate names, matching the Scope section's list exactly.
+
 ## API Reference
 
 **TAP:**
@@ -173,6 +178,16 @@ No Proofpoint credentials (TAP or Essentials) were provided with this task, so a
 
 ## Known Gaps
 
+- **Trimmed from 28 to 15 tools on 2026-08-07**, per the parent ClickUp
+  task's stated primary use case (email security account creation /
+  synchronization). Essentials kept in full (12 tools: users, orgs,
+  domains, me); `sync_exemptions` (4 tools) dropped. TAP cut to one
+  representative tool per category (3 tools: `get_all_threats`, `get_vap`,
+  `url_defense_decode`); `campaign`, `forensics`, `threats`, the per-type
+  SIEM click/message breakdowns, and `people.get_top_clickers` were
+  dropped as lower priority for account provisioning. See the Scope
+  section above for the full rationale; the removed tools' code is still
+  in git history if a future task needs them back.
 - **Trimmed from 89 to 28 tools on 2026-08-04.** TAP was already minimal
   (12 tools, unchanged). Essentials was cut from a full-API 77-tool build
   down to 16 tools covering the original ClickUp task's stated need
@@ -190,4 +205,4 @@ No Proofpoint credentials (TAP or Essentials) were provided with this task, so a
 - **Supplier Threat Protection API was not evaluated** — it's one of the 8 official TAP sub-APIs but has no corresponding tool in the community repo to begin with, so it was out of scope for this correction pass. Not built.
 - **No live self-test against real account data.** This task did not come with a Proofpoint test account/credentials (unlike most other vendor builds in this program). Only negative-credential (401, route-recognized) verification has been performed — see 测试示例 above.
 - **`domain` param naming (Essentials).** Per the official OpenAPI spec, most Essentials paths use `{domain}` as a path segment that actually identifies the *organization* being operated on (not always a literal email domain) — this matches the vendor's own spec/terminology exactly, not a naming choice made here.
-- **Essentials write operations are destructive/irreversible where the underlying HTTP verb is DELETE** — `proofpoint_essentials_users_delete_user` and the 2 `sync_exemptions` delete tools — treat these as irreversible against a real tenant and confirm with a human before invoking.
+- **Essentials write operations are destructive/irreversible where the underlying HTTP verb is DELETE** — `proofpoint_essentials_users_delete_user` (the only DELETE tool remaining after the 2026-08-07 trim removed the 2 `sync_exemptions` delete tools) — treat this as irreversible against a real tenant and confirm with a human before invoking.
