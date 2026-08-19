@@ -127,6 +127,24 @@ def create_mcp_server(settings: Settings) -> FastMCP:
     # correctly behind a reverse proxy or docker network.
     mcp = FastMCP(
         name="proofpoint-mcp",
+        instructions=(
+            "Proofpoint email security, exposed via two independent product APIs "
+            "with separate credentials. TAP (Targeted Attack Protection) is "
+            "threat/attack intelligence: Very Attacked People risk scores "
+            "(proofpoint_tap_people_get_vap), SIEM-style delivered/blocked message "
+            "and click events (proofpoint_tap_tap_get_all_threats), and "
+            "rewritten-URL decoding (proofpoint_tap_url_defense_decode). "
+            "Essentials is Proofpoint's SMB/MSP email-security tenant "
+            "administration API: organizations (essentials_orgs), their domains "
+            "(essentials_domains), and mailbox users (essentials_users — the only "
+            "category with create/update/delete tools), plus a connectivity "
+            "self-test (essentials_me_get_me). A caller only needs the credential "
+            "set for the product whose tools it calls. Typical flow: "
+            "essentials_orgs_get_org / essentials_domains_get_domains to confirm "
+            "a tenant exists, then essentials_users_* to provision or look up "
+            "mailboxes; independently, tap_people_get_vap or "
+            "tap_tap_get_all_threats for attack-surface questions."
+        ),
         transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False),
     )
 

@@ -11,7 +11,10 @@ def _build_http_app(mcp, settings):
     from starlette.routing import Mount, Route
 
     async def health(_: Request) -> JSONResponse:
-        return JSONResponse({"status": "ok", "service": "proofpoint-mcp", "transport": "http"})
+        # Pure local liveness probe — must not depend on the Proofpoint APIs
+        # being reachable, and must return exactly {"status": "ok"} (no extra
+        # fields) per the Vendor MCP SOP's health-endpoint contract.
+        return JSONResponse({"status": "ok"})
 
     mcp_app = mcp.streamable_http_app()  # Starlette app owning the session-manager lifespan
     mounted = GatewayTokenMiddleware(mcp_app, settings)

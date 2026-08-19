@@ -103,7 +103,7 @@ Calling a TAP tool without TAP credentials (even if Essentials credentials were 
 ## MCP Endpoint
 
 - `POST /mcp` — MCP protocol (streamable HTTP transport)
-- `GET /health` — health check, returns `{"status": "ok", "service": "proofpoint-mcp", "transport": "http"}`
+- `GET /health` — health check, returns `{"status": "ok"}`. Pure local liveness probe; does not depend on either Proofpoint API being reachable.
 
 ## Tool List
 
@@ -175,6 +175,36 @@ No Proofpoint credentials (TAP or Essentials) were provided with this task, so a
 **Essentials:**
 - Official OpenAPI 3.0 spec (downloadable): https://us1.proofpointessentials.com/apidocs/apidocs/docs
 - Essentials admin guide: https://help.proofpoint.com/Proofpoint_Essentials
+
+## Vendor MCP SOP Compliance Notes (2026-08-19 pass)
+
+- **Error format changed**: tool errors were plain `"Error: ..."` strings; they are now a
+  structured JSON envelope `{"error": {"code", "message", "retryable"}}` with `code` drawn
+  from the fixed vocabulary (`not_configured`/`unauthorized`/`not_found`/`invalid_argument`/
+  `rate_limited`/`upstream_error`). Any downstream consumer that pattern-matched on the old
+  `"Error: "` prefix needs to switch to parsing this JSON envelope instead.
+- **Responses are now compact JSON** (`dump_json_capped`, `ensure_ascii=False`, no `indent`),
+  capped at ~20,000 chars with truncation + `original_count` reported if a result would
+  exceed that — previously `json.dumps(..., indent=2)` returned uncapped, indent-padded JSON.
+- **Retry/backoff added**: outbound calls to both Proofpoint APIs now retry up to 3 times on
+  `429`/`5xx` with exponential backoff (capped 20s, respects `Retry-After`); previously there
+  was no retry logic and a fresh `httpx.AsyncClient` was opened per call instead of reusing a
+  pooled connection.
+- **`proofpoint_tap_people_get_vap`'s `size` param is now clamped** to a default of 50 and a
+  hard cap of 200 (applied here, not by Proofpoint). Proofpoint's own People API docs give no
+  documented maximum for this endpoint's `size` (unlike the sibling top-clickers endpoint,
+  which documents 200) and default to 1000 if omitted — too large for a token-bounded tool
+  result, so this server applies the Vendor MCP SOP's fallback ceiling instead of trusting
+  the undocumented vendor default. No other tool in this server takes a list-size/pagination
+  parameter: `essentials_domains_get_domains` and `essentials_users_get_users` return an
+  org's full domain/user list with no pagination parameters in Proofpoint's own v1 API (per
+  `https://us1.proofpointessentials.com/api/v1/docs/index.php`), so oversized results are
+  bounded only by this server's own `dump_json_capped` truncation, not a vendor-side limit.
+- **Tool annotations added** (`readOnlyHint`/`destructiveHint`/`idempotentHint` per
+  `mcp.types.ToolAnnotations`) and a service-level `instructions` string was added to the
+  FastMCP server describing how the TAP and Essentials tool groups relate.
+- No parameter was renamed and no tool was added/removed in this pass — the tool
+  count/names/required-params in the table above are unchanged.
 
 ## Known Gaps
 
